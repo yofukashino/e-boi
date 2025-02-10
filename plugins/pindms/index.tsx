@@ -104,6 +104,7 @@ async function patchGuildNav() {
     const GuildsNavBar = findInReactTree(res, (node) =>
       node?.props?.className?.includes(props.className),
     );
+
     if (!GuildsNavBar) return res;
 
     patchGuildsNavBar(GuildsNavBar);
@@ -118,6 +119,15 @@ async function patchGuildNav() {
 
 function patchGuildsNavBar(component: JSX.Element): void {
   injector.after(component, "type", (_, res) => {
+    const scrollContainer = findInReactTree(res, (c) => typeof c?.props?.children === "function");
+    if (!scrollContainer) return res;
+    patchScrollContainer(scrollContainer);
+    return res;
+  });
+}
+
+function patchScrollContainer(component: JSX.Element): void {
+  injector.after(component.props, "children", (_, res) => {
     const NavScroll = findInReactTree(res, (node) => node?.props?.onScroll);
     if (!NavScroll?.props?.children) return res;
     let PinIndex = 3;

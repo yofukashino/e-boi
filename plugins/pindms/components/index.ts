@@ -7,6 +7,7 @@ import type {
   FactoryOrInstance,
 } from "react-dnd";
 import { webpack } from "replugged";
+import { components } from "replugged/common";
 import { AnyFunction, ObjectExports } from "replugged/dist/types";
 
 export interface User {
@@ -46,20 +47,20 @@ interface AvatarProps {
   onContextMenu: (event: React.MouseEvent) => void;
 }
 
-export const {
-  Popout: DPopout,
-  Avatar,
-  BlobMask,
-}: {
-  Popout: FC<{
+export const DPopout = webpack.getFunctionBySource<
+  FC<{
     children: () => ReactElement;
     shouldShow: boolean;
     onRequestClose: () => void;
     renderPopout: () => ReactElement;
-  }>;
-  Avatar: FC<AvatarProps>;
-  BlobMask: FC<{ children: ReactElement; lowerBadge?: ReactElement; upperBadge?: ReactElement }>;
-} = webpack.getByProps(["Avatar", "Popout", "BlobMask"])!;
+  }>
+>(components, "Unsupported animation config:");
+
+export const Avatar = webpack.getFunctionBySource<FC<AvatarProps>>(components, "dotRadius:");
+
+export const BlobMask = webpack.getFunctionBySource<
+  FC<{ children: ReactElement; lowerBadge?: ReactElement; upperBadge?: ReactElement }>
+>(components, "badgeMaskSize:");
 
 const BadgeMod = await webpack.waitForModule(webpack.filters.bySource(".isCurrentUserConnected]"));
 export const Badge = {
@@ -74,10 +75,10 @@ export const Badge = {
       screenshare?: boolean;
       video?: boolean;
     }) => JSX.Element
-  >(BadgeMod, ".ScreenIcon;"),
+  >(BadgeMod, "screenshare:"),
   renderMentionBadge: webpack.getFunctionBySource<(count: number, color?: string) => JSX.Element>(
     BadgeMod,
-    ".NumberBadge",
+    "count:",
   ),
 };
 
