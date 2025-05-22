@@ -56,7 +56,10 @@ export const DPopout = webpack.getFunctionBySource<
   }>
 >(components, "Unsupported animation config:");
 
-export const Avatar = webpack.getFunctionBySource<FC<AvatarProps>>(components, "dotRadius:");
+export const Avatar = webpack.getFunctionBySource<FC<AvatarProps>>(
+  components,
+  "typingIndicatorRef:",
+);
 
 export const BlobMask = webpack.getFunctionBySource<
   FC<{ children: ReactElement; lowerBadge?: ReactElement; upperBadge?: ReactElement }>
