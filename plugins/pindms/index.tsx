@@ -1,5 +1,5 @@
-import { ReactElement, useEffect, useState } from "react";
-import { Injector, common, types, util, webpack } from "replugged";
+import { ReactElement, useEffect, useReducer, useState } from "react";
+import { Injector, common, plugins, types, util, webpack } from "replugged";
 import pluginSettings from "./pluginSettings";
 import Categories from "./components/Categories";
 import { CATEGORY_UPDATE, GUILDLIST_UPDATE } from "./constants";
@@ -41,18 +41,20 @@ export function start() {
         }, []);
 
         const ids = cates.map((c) => c.ids).flat();
-
-        res.props.children.props.privateChannelIds =
-          res.props.children.props.privateChannelIds.filter((p: string) => !ids.includes(p));
+        // findInReactTree??
+        res.props.children.props.children.props.privateChannelIds =
+          res.props.children.props.children.props.privateChannelIds.filter(
+            (p: string) => !ids.includes(p),
+          );
         if (
-          !res.props?.children?.props?.children?.some(
+          !res.props?.children?.props?.children.props.children?.some(
             (c: ReactElement) => c?.key === "pindms-categories",
           )
         )
-          res.props.children.props.children.push(
+          res.props.children.props.children.props.children.push(
             <Categories
               key="pindms-categories"
-              selectedChannelId={res.props.children.props.selectedChannelId}
+              selectedChannelId={res.props.children.props.children.props.selectedChannelId}
             />,
           );
 
@@ -81,7 +83,7 @@ export function start() {
     },
   );
 
-  void patchGuildNav();
+  /*  void patchGuildNav(); */
 }
 
 export function stop() {
@@ -93,87 +95,23 @@ export function stop() {
     .catch(() => {});
 }
 
-async function patchGuildNav() {
-  const GuildsNav = await webpack.waitForModule<Record<"type", AnyFunction>>(
-    webpack.filters.bySource("guildsnav"),
-  );
-
-  if (!GuildsNav) return;
-
-  injector.after(GuildsNav, "type", ([props]: [{ className: string }], res: ReactElement) => {
-    const GuildsNavBar = findInReactTree(res, (node) =>
-      node?.props?.className?.includes(props.className),
-    );
-
-    if (!GuildsNavBar) return res;
-
-    patchGuildsNavBar(GuildsNavBar);
-    return res;
-  });
-
-  util
-    .waitFor(`.${guildClasses.guilds}`)
-    .then(forceUpdate)
-    .catch(() => {});
+export function _renderGuildPins() {
+  return !plugins.getDisabled().includes("dev.eboi.pindms") && <GuildPins />;
 }
 
-function patchGuildsNavBar(component: JSX.Element): void {
-  injector.after(component, "type", (_, res) => {
-    const scrollContainer = findInReactTree(res, (c) => typeof c?.props?.children === "function");
-    if (!scrollContainer) return res;
-    patchScrollContainer(scrollContainer);
-    return res;
-  });
-}
+export function _filterUnreadDms(unreads: ReactElement[]): ReactElement[] {
+  const [_, forceUpdate] = useReducer((x) => x + 1, 0);
+  const pins: string[] = pluginSettings.get("guildPins", []);
 
-function patchScrollContainer(component: JSX.Element): void {
-  injector.after(component.props, "children", (_, res) => {
-    const NavScroll = findInReactTree(res, (node) => node?.props?.onScroll);
-    if (!NavScroll?.props?.children) return res;
-    let PinIndex = 3;
+  if (!plugins.getDisabled().includes("dev.eboi.pindms")) return unreads;
 
-    const getIndexByKeyword = (keyword: string): number =>
-      NavScroll.props.children.findIndex((child: ReactElement) =>
-        child?.type?.toString()?.includes(keyword),
-      );
+  useEffect(() => {
+    const update = () => forceUpdate();
 
-    const FavouritesIndex = getIndexByKeyword("favorites");
-    if (FavouritesIndex !== -1) {
-      PinIndex = FavouritesIndex + 1;
-    } else {
-      const HomeButtonIndex = getIndexByKeyword("getHomeLink");
-      if (HomeButtonIndex !== -1) {
-        PinIndex = HomeButtonIndex + 1;
-      }
-    }
+    common.fluxDispatcher.subscribe(GUILDLIST_UPDATE, update);
+    return () => common.fluxDispatcher.unsubscribe(GUILDLIST_UPDATE, update);
+  }, []);
+  if (!Array.isArray(unreads)) return unreads;
 
-    const UnreadDMsIndex = getIndexByKeyword("getUnreadPrivateChannelIds");
-    if (UnreadDMsIndex != -1) {
-      patchUnreadDMs(NavScroll.props.children[UnreadDMsIndex]);
-    }
-
-    NavScroll.props.children.splice(PinIndex, 0, <GuildPins />);
-
-    return res;
-  });
-}
-
-function patchUnreadDMs(component: JSX.Element) {
-  injector.after(component, "type", (_, res) => {
-    const [__, forceUpdate] = useState({});
-    const pins: string[] = pluginSettings.get("guildPins", []);
-
-    useEffect(() => {
-      const update = () => forceUpdate({});
-
-      common.fluxDispatcher.subscribe(GUILDLIST_UPDATE, update);
-      return () => common.fluxDispatcher.unsubscribe(GUILDLIST_UPDATE, update);
-    }, []);
-
-    res.props.children = res.props.children.filter(
-      (c: ReactElement) => !pins.includes(c?.key as string),
-    );
-
-    return res;
-  });
+  return unreads.filter((c: ReactElement) => !pins.includes(c?.key as string));
 }
